@@ -28,15 +28,32 @@
             <div class="logo">🌿 Se-Check</div>
             <p class="subtitle">自分の体に戻ろう</p>
 
-            <!-- ランク・経験値バー (新機能) -->
-            <div class="rank-container fade-in">
-                <div class="rank-info">
-                    <span id="rank-name">見習い冒険者</span>
-                    <span id="rank-level">Lv.1</span>
+            <!-- ステータスバー (Phase 6: 2つのパラメータ) -->
+            <div class="status-container fade-in">
+                <!-- 体力 (修練) -->
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>❤️ 体力</span>
+                        <span id="stamina-lvl">Lv.1</span>
+                    </div>
+                    <div class="bar-bg">
+                        <div id="stamina-bar" class="bar-fill stamina" style="width: 0%;"></div>
+                    </div>
                 </div>
-                <div class="exp-bar-bg">
-                    <div id="exp-bar-fill" class="exp-bar-fill" style="width: 0%;"></div>
+                <!-- 管理 (体調) -->
+                <div class="status-item">
+                    <div class="status-label">
+                        <span>🛡️ 管理</span>
+                        <span id="control-lvl">Lv.1</span>
+                    </div>
+                    <div class="bar-bg">
+                        <div id="control-bar" class="bar-fill control" style="width: 0%;"></div>
+                    </div>
                 </div>
+            </div>
+            <!-- 今日の獲得ポイント表示 -->
+            <div id="daily-points" class="daily-points fade-in">
+                今日: ❤️ 0/10 🛡️ 0/10
             </div>
         </header>
 
@@ -45,7 +62,20 @@
                  タブ1: ホーム
                  ========================= -->
             <div id="tab-home" class="tab-content active">
-                <!-- アファメーション -->
+
+                <!-- NPC Area -->
+                <div id="npc-area" onclick="talkToNPC()">
+                    <div id="npc-bubble" class="hidden">今日も元気？</div>
+                    <div id="npc-char">🌱</div>
+                </div>
+
+                <!-- 朝夜切り替えスイッチ (Phase 6) -->
+                <div class="day-night-switch">
+                    <button id="mode-morning" class="mode-btn active" onclick="switchMode('morning')">☀️ 朝</button>
+                    <button id="mode-night" class="mode-btn" onclick="switchMode('night')">🌙 夜</button>
+                </div>
+
+                <!-- アファメーション (共通) -->
                 <section class="card fade-in">
                     <div id="affirmation-display">
                         <div class="icon">✨</div>
@@ -54,7 +84,7 @@
                     </div>
                 </section>
 
-                <!-- 天気 -->
+                <!-- 天気 (朝推奨だが常に表示) -->
                 <section class="card slide-up">
                     <div class="weather-widget">
                         <div class="weather-current">
@@ -76,19 +106,77 @@
                     </div>
                 </section>
 
-                <!-- 体調記録 -->
+                <!-- 入力フォームエリア -->
                 <section class="card slide-up">
-                    <h3>今の体の声を聞こう</h3>
-                    <form id="check-form" onsubmit="event.preventDefault(); saveLog();">
-                        <div id="sliders-container">
-                            <!-- JS生成 -->
+                    <h3 id="input-title">今の体の声を聞こう</h3>
+                    <form id="check-form" onsubmit="event.preventDefault(); saveDailyLog();">
+
+                        <!-- ☀️ 朝モード用: 体調スライダー -->
+                        <div id="morning-inputs">
+                            <div id="sliders-container">
+                                <!-- JS生成 -->
+                            </div>
                         </div>
+
+                        <!-- 🌙 夜モード用: 振り返り -->
+                        <div id="night-inputs" style="display:none;">
+                            <!-- 今日のできごと -->
+                            <div class="memo-area">
+                                <label>📅 今日のできごと</label>
+                                <textarea id="night-event" rows="2" placeholder="何があった？"></textarea>
+                            </div>
+
+                            <!-- 疲れチェック -->
+                            <div class="slider-group">
+                                <label>🏋️‍♀️ 体の疲れ</label>
+                                <input type="range" id="night-body-tired" min="1" max="5" value="3" class="slider">
+                                <div class="slider-labels"><span>軽い</span><span>重い</span></div>
+                            </div>
+                            <div class="slider-group">
+                                <label>🧠 メンタルの疲れ</label>
+                                <input type="range" id="night-mental-tired" min="1" max="5" value="3" class="slider">
+                                <div class="slider-labels"><span>元気</span><span>疲弊</span></div>
+                            </div>
+                            <div class="slider-group">
+                                <label>🥛 胃腸の調子</label>
+                                <input type="range" id="night-stomach" min="1" max="5" value="3" class="slider">
+                                <div class="slider-labels"><span>不調</span><span>絶好調</span></div>
+                            </div>
+                            <div class="slider-group">
+                                <label>🔥 今日のモチベーション</label>
+                                <input type="range" id="night-motivation" min="1" max="5" value="3" class="slider">
+                                <div class="slider-labels"><span>低い</span><span>高い</span></div>
+                            </div>
+
+                            <!-- ポジティブログ -->
+                            <div class="positive-log-area">
+                                <label>✨ 今日の宝物 (複数選択可)</label>
+                                <div class="tag-selector">
+                                    <label class="tag-check">
+                                        <input type="checkbox" id="tag-fun">
+                                        <span class="tag-box">😁 楽しかった</span>
+                                    </label>
+                                    <label class="tag-check">
+                                        <input type="checkbox" id="tag-moved">
+                                        <span class="tag-box">🥺 心が動いた</span>
+                                    </label>
+                                    <label class="tag-check">
+                                        <input type="checkbox" id="tag-growth">
+                                        <span class="tag-box">🌱 成長・発見</span>
+                                    </label>
+                                </div>
+                                <textarea id="night-positive-memo" rows="2" placeholder="詳しく教えて..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 共通メモ -->
                         <div class="memo-area">
-                            <label>📝 メモ</label>
-                            <textarea id="memo" rows="3" placeholder="気付いたこと..."></textarea>
+                            <label>📝 メモ (共通)</label>
+                            <textarea id="memo" rows="2" placeholder="自由にどうぞ..."></textarea>
                         </div>
+
                         <br>
-                        <button type="submit" class="save-btn">記録して経験値GET</button>
+                        <button type="submit" class="save-btn" id="save-btn-text">SAVE</button>
                     </form>
                 </section>
             </div>
@@ -99,7 +187,7 @@
             <div id="tab-training" class="tab-content">
                 <section class="card slide-up">
                     <h3>本日の修練</h3>
-                    <p class="instruction" style="margin-bottom:15px;">やった稽古をチェックしよう</p>
+                    <p class="instruction" style="margin-bottom:15px;">1日最大10ptまで獲得可能</p>
 
                     <form id="training-form" onsubmit="event.preventDefault(); saveTraining();">
 
@@ -147,7 +235,6 @@
                     </form>
                 </section>
 
-                <!-- 修練履歴 -->
                 <section class="card slide-up">
                     <h3>修練の記録</h3>
                     <ul id="training-history-list">
@@ -157,7 +244,7 @@
             </div>
 
             <!-- =========================
-                 タブ3: ログ
+                 タブ3: ログ (履歴)
                  ========================= -->
             <div id="tab-log" class="tab-content">
                 <section class="card slide-up">
@@ -182,6 +269,7 @@
                     <div class="theme-selector">
                         <button class="theme-btn active" onclick="setTheme('forest')">🌿 森の癒やし</button>
                         <button class="theme-btn" onclick="setTheme('fantasy')">⚔️ 冒険の書</button>
+                        <button class="theme-btn" onclick="setTheme('island')">🏝️ 島の暮らし</button>
                     </div>
                 </section>
                 <section class="card slide-up">
@@ -192,7 +280,7 @@
                     </div>
                 </section>
                 <section class="card slide-up">
-                    <h3>チェック項目設定</h3>
+                    <h3>朝のチェック項目設定</h3>
                     <div id="settings-toggles"></div>
                 </section>
                 <section class="card slide-up">
@@ -202,7 +290,7 @@
             </div>
         </main>
 
-        <!-- 下部ナビゲーション (4つに増えました) -->
+        <!-- 下部ナビゲーション -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="switchTab('home')">
                 <span class="nav-icon">🏠</span>
