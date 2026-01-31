@@ -1,0 +1,768 @@
+:root {
+    /* ============================
+     デフォルトテーマ: 森の癒やし
+     ============================ */
+    --font-main: 'Zen Maru Gothic', sans-serif;
+    --bg-color: #eaf4e9;
+    /* 薄い緑（背景） */
+    --card-bg: #ffffff;
+    /* 白（カード） */
+    --text-main: #2f4f4f;
+    /* ダークスレートグレー */
+    --text-sub: #5f7f7f;
+    /* サブ文字 */
+    --accent: #4a7c59;
+    /* アクセント（緑） */
+    --accent-light: #e0f2f1;
+    /* アクセント薄め */
+    --nav-bg: #ffffff;
+    /* ナビ背景 */
+    --nav-active: #4a7c59;
+    /* ナビ選択時 */
+    --nav-inactive: #cccccc;
+    /* ナビ非選択時 */
+    --shadow: 0 4px 20px rgba(47, 79, 79, 0.1);
+    --border-radius: 20px;
+    --btn-radius: 12px;
+    --input-bg: #f9f9f9;
+    --input-border: #ddd;
+
+    /* ランク用 */
+    --exp-bar-bg: #dcdcdc;
+    --exp-bar-fill: #4a7c59;
+}
+
+/* ============================
+   ファンタジー冒険テーマ
+   ============================ */
+[data-theme="fantasy"] {
+    --font-main: 'Shippori Mincho', serif;
+    --bg-color: #1a1a1d;
+    --card-bg: #2b2b2b;
+    --text-main: #e0d8c0;
+    --text-sub: #a09885;
+    --accent: #c5a059;
+    --accent-light: #3e3828;
+    --nav-bg: #222222;
+    --nav-active: #c5a059;
+    --nav-inactive: #555555;
+    --shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    --border-radius: 4px;
+    --btn-radius: 2px;
+    --input-bg: #333333;
+    --input-border: #555555;
+
+    /* ランク用 */
+    --exp-bar-bg: #444444;
+    --exp-bar-fill: linear-gradient(90deg, #bfa05f, #ffe082, #bfa05f);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    padding-bottom: 90px;
+    transition: background-color 0.5s, color 0.5s;
+}
+
+body[data-theme="fantasy"] {
+    background-image: radial-gradient(circle at center, #252525 0%, #1a1a1d 100%);
+}
+
+.app-container {
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    padding-top: 1rem;
+}
+
+.logo {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--accent);
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    color: var(--text-sub);
+    margin-top: 5px;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+
+/* --- ランク表示 (Phase 5) --- */
+.rank-container {
+    background: var(--card-bg);
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-top: 10px;
+    text-align: left;
+}
+
+.rank-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+#rank-level {
+    color: var(--accent);
+}
+
+.exp-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: var(--exp-bar-bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.exp-bar-fill {
+    height: 100%;
+    background: var(--exp-bar-fill);
+    width: 0%;
+    transition: width 0.5s ease-out;
+}
+
+[data-theme="fantasy"] .rank-container {
+    border: 1px solid #444;
+}
+
+/* カード共通 */
+.card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    border: 1px solid transparent;
+    transition: background 0.5s, border 0.5s, box-shadow 0.5s;
+}
+
+[data-theme="fantasy"] .card {
+    border: 1px solid #444;
+    background: linear-gradient(145deg, #2b2b2b, #222);
+}
+
+h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+h3 {
+    font-size: 1.1rem;
+    color: var(--text-sub);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--accent-light);
+}
+
+[data-theme="fantasy"] h3 {
+    border-bottom: 1px solid #555;
+    font-weight: normal;
+    letter-spacing: 1px;
+}
+
+/* --- タブ切り替え --- */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* --- 下部ナビゲーション --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    background: var(--nav-bg);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-top: 1px solid transparent;
+    transition: background 0.5s;
+}
+
+[data-theme="fantasy"] .bottom-nav {
+    border-top: 1px solid #444;
+    border-radius: 0;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    color: var(--nav-inactive);
+    cursor: pointer;
+    padding: 5px 10px;
+    /* 少し狭く */
+    transition: all 0.2s;
+    flex: 1;
+    /* 均等配置 */
+}
+
+.nav-item.active {
+    color: var(--nav-active);
+    transform: translateY(-3px);
+    text-shadow: 0 0 10px rgba(74, 124, 89, 0.2);
+}
+
+[data-theme="fantasy"] .nav-item.active {
+    text-shadow: 0 0 8px rgba(197, 160, 89, 0.6);
+}
+
+.nav-icon {
+    font-size: 1.5rem;
+}
+
+.nav-label {
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+/* --- アファメーション --- */
+#affirmation-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+.icon-btn {
+    background: var(--accent-light);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-sub);
+    margin-top: 10px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+[data-theme="fantasy"] .icon-btn {
+    border: 1px solid #555;
+    background: #2a2a2a;
+}
+
+.icon-btn:hover {
+    background: var(--accent);
+    color: var(--card-bg);
+    /* 文字色反転 */
+}
+
+/* --- 天気ウィジェット --- */
+.weather-widget {
+    text-align: center;
+}
+
+.weather-current {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.weather-icon {
+    font-size: 3rem;
+}
+
+.weather-temp {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.weather-details {
+    display: flex;
+    justify-content: space-around;
+    background: var(--input-bg);
+    padding: 10px;
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--input-border);
+    margin-bottom: 15px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-item .label {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+}
+
+.detail-item .value {
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.weather-advice {
+    margin-top: 15px;
+    padding: 10px;
+    background: var(--accent-light);
+    color: var(--text-main);
+    border: 1px solid var(--accent);
+    border-radius: var(--btn-radius);
+    font-size: 0.9rem;
+    display: none;
+}
+
+.weather-advice.show {
+    display: block;
+}
+
+#weather-btn {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+[data-theme="fantasy"] #weather-btn {
+    border-radius: 2px;
+    border-color: #777;
+    color: #aaa;
+}
+
+[data-theme="fantasy"] #weather-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#weather-btn:hover {
+    background: var(--accent);
+    color: white;
+}
+
+[data-theme="fantasy"] #weather-btn:hover {
+    background: rgba(197, 160, 89, 0.2);
+    color: var(--accent);
+}
+
+
+/* --- スライダー設定 --- */
+.slider-group {
+    margin-bottom: 1.5rem;
+}
+
+.slider-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+}
+
+[data-theme="fantasy"] .slider {
+    background: #555;
+    border: 1px solid #222;
+    border-radius: 2px;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="fantasy"] .slider::-webkit-slider-thumb {
+    border-radius: 0;
+    transform: rotate(45deg);
+    border: 2px solid #1a1a1d;
+    width: 20px;
+    height: 20px;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    margin-top: 5px;
+}
+
+/* --- 修練タブ (Phase 5) --- */
+.training-group {
+    margin-bottom: 20px;
+}
+
+.step-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.step-input-row input {
+    flex: 1;
+    padding: 10px;
+    font-size: 1.2rem;
+    border: 1px solid var(--input-border);
+    border-radius: var(--btn-radius);
+    background: var(--input-bg);
+    color: var(--text-main);
+    text-align: right;
+}
+
+[data-theme="fantasy"] .step-input-row input {
+    background: #222;
+    border: 1px solid #555;
+}
+
+.training-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.check-box-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: var(--input-bg);
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+    user-select: none;
+}
+
+.check-box-item:hover {
+    filter: brightness(95%);
+}
+
+[data-theme="fantasy"] .check-box-item {
+    background: #2a2a2a;
+    border: 1px solid #444;
+}
+
+/* カスタムチェックボックス */
+.check-box-item input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    height: 24px;
+    width: 24px;
+    background-color: #ddd;
+    border-radius: 4px;
+    margin-right: 15px;
+    position: relative;
+}
+
+[data-theme="fantasy"] .checkmark {
+    background-color: #444;
+    border: 1px solid #666;
+    border-radius: 2px;
+}
+
+.check-box-item:hover input~.checkmark {
+    background-color: #ccc;
+}
+
+.check-box-item input:checked~.checkmark {
+    background-color: var(--accent);
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.check-box-item input:checked~.checkmark:after {
+    display: block;
+}
+
+.check-box-item .checkmark:after {
+    left: 9px;
+    top: 5px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+[data-theme="fantasy"] .check-box-item input:checked~.checkmark:after {
+    border-color: #1a1a1d;
+    /* ファンタジーはチェックマークが黒っぽい */
+}
+
+.label-text {
+    font-weight: bold;
+}
+
+/* --- メモ欄 --- */
+.memo-area {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.memo-area label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+textarea,
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--btn-radius);
+    background: var(--input-bg);
+    color: var(--text-main);
+    font-family: inherit;
+    resize: vertical;
+    transition: border 0.3s;
+}
+
+textarea:focus,
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* 羊皮紙風スタイル */
+[data-theme="fantasy"] textarea,
+[data-theme="fantasy"] input[type="text"] {
+    background: #e3dac9;
+    color: #3e2723;
+    border: 2px solid #5d4037;
+    border-radius: 2px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="fantasy"] textarea::placeholder,
+[data-theme="fantasy"] input[type="text"]::placeholder {
+    color: #8d6e63;
+}
+
+/* --- 設定 --- */
+.custom-goal-area input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--btn-radius);
+    background: var(--input-bg);
+    color: var(--text-main);
+    font-family: inherit;
+}
+
+[data-theme="fantasy"] .custom-goal-area input {
+    background: #222;
+    border: 1px solid #444;
+}
+
+.toggle-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--input-border);
+}
+
+.toggle-item label {
+    cursor: pointer;
+}
+
+input[type="checkbox"] {
+    accent-color: var(--accent);
+    transform: scale(1.2);
+}
+
+/* --- ボタン類 --- */
+.save-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--btn-radius);
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, filter 0.2s;
+}
+
+.save-btn.secondary {
+    background: var(--text-sub);
+}
+
+[data-theme="fantasy"] .save-btn {
+    color: #1a1a1d;
+    border: 1px solid #8c7340;
+    background: linear-gradient(180deg, #c5a059, #a08040);
+    box-shadow: 0 4px 0 #5d4037;
+}
+
+[data-theme="fantasy"] .save-btn.secondary {
+    background: linear-gradient(180deg, #a09885, #7d7565);
+    border-color: #5d5545;
+}
+
+[data-theme="fantasy"] .save-btn:active {
+    transform: translateY(4px);
+    box-shadow: none;
+}
+
+.save-btn:hover {
+    filter: brightness(110%);
+}
+
+[data-theme="fantasy"] .save-btn:hover {
+    filter: brightness(115%);
+}
+
+.small-btn {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background: transparent;
+    border: 1px solid var(--input-border);
+    color: var(--text-sub);
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+}
+
+/* テーマ選択ボタン */
+.theme-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.theme-btn {
+    padding: 15px;
+    border: 2px solid var(--input-border);
+    background: var(--card-bg);
+    color: var(--text-main);
+    border-radius: var(--btn-radius);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.theme-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: bold;
+}
+
+[data-theme="fantasy"] .theme-btn.active {
+    background: rgba(197, 160, 89, 0.1);
+}
+
+/* --- 履歴リスト --- */
+ul {
+    list-style: none;
+}
+
+li {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--input-border);
+}
+
+.log-header {
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.log-main {
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.log-extra {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 4px;
+}
+
+/* グラフエリア */
+.chart-container {
+    height: 250px;
+    width: 100%;
+    position: relative;
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

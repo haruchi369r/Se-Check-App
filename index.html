@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- PWA用設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <title>Se-Check | 自分の体に戻ろう</title>
+    <!-- フォント -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+
+        <header>
+            <div class="logo">🌿 Se-Check</div>
+            <p class="subtitle">自分の体に戻ろう</p>
+
+            <!-- ランク・経験値バー (新機能) -->
+            <div class="rank-container fade-in">
+                <div class="rank-info">
+                    <span id="rank-name">見習い冒険者</span>
+                    <span id="rank-level">Lv.1</span>
+                </div>
+                <div class="exp-bar-bg">
+                    <div id="exp-bar-fill" class="exp-bar-fill" style="width: 0%;"></div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- =========================
+                 タブ1: ホーム
+                 ========================= -->
+            <div id="tab-home" class="tab-content active">
+                <!-- アファメーション -->
+                <section class="card fade-in">
+                    <div id="affirmation-display">
+                        <div class="icon">✨</div>
+                        <h2 id="affirmation-text">読み込み中...</h2>
+                        <button id="refresh-affirmation" class="icon-btn" title="別の言葉を見る">🔄</button>
+                    </div>
+                </section>
+
+                <!-- 天気 -->
+                <section class="card slide-up">
+                    <div class="weather-widget">
+                        <div class="weather-current">
+                            <span class="weather-icon">🌤</span>
+                            <span class="weather-temp">--℃</span>
+                        </div>
+                        <div class="weather-details">
+                            <div class="detail-item">
+                                <span class="label">最高 / 最低</span>
+                                <span class="value" id="weather-high-low">-- / --</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">気圧</span>
+                                <span class="value" id="weather-pressure">-- hPa</span>
+                            </div>
+                        </div>
+                        <button id="weather-btn" onclick="getWeather()">現在地を取得</button>
+                        <div id="weather-advice" class="weather-advice"></div>
+                    </div>
+                </section>
+
+                <!-- 体調記録 -->
+                <section class="card slide-up">
+                    <h3>今の体の声を聞こう</h3>
+                    <form id="check-form" onsubmit="event.preventDefault(); saveLog();">
+                        <div id="sliders-container">
+                            <!-- JS生成 -->
+                        </div>
+                        <div class="memo-area">
+                            <label>📝 メモ</label>
+                            <textarea id="memo" rows="3" placeholder="気付いたこと..."></textarea>
+                        </div>
+                        <br>
+                        <button type="submit" class="save-btn">記録して経験値GET</button>
+                    </form>
+                </section>
+            </div>
+
+            <!-- =========================
+                 タブ2: 修練 (トレーニング)
+                 ========================= -->
+            <div id="tab-training" class="tab-content">
+                <section class="card slide-up">
+                    <h3>本日の修練</h3>
+                    <p class="instruction" style="margin-bottom:15px;">やった稽古をチェックしよう</p>
+
+                    <form id="training-form" onsubmit="event.preventDefault(); saveTraining();">
+
+                        <!-- 歩数 -->
+                        <div class="training-group">
+                            <label>🐾 今日の歩数</label>
+                            <div class="step-input-row">
+                                <input type="number" id="step-count" placeholder="0" min="0">
+                                <span>歩</span>
+                            </div>
+                        </div>
+
+                        <!-- 稽古メニュー -->
+                        <div class="training-list">
+                            <label class="check-box-item">
+                                <input type="checkbox" id="tr-taiki">
+                                <span class="checkmark"></span>
+                                <div class="label-text">太気拳 (這・練・立禅)</div>
+                            </label>
+                            <label class="check-box-item">
+                                <input type="checkbox" id="tr-kihon">
+                                <span class="checkmark"></span>
+                                <div class="label-text">基本功</div>
+                            </label>
+                            <label class="check-box-item">
+                                <input type="checkbox" id="tr-kick">
+                                <span class="checkmark"></span>
+                                <div class="label-text">蹴り</div>
+                            </label>
+                            <label class="check-box-item">
+                                <input type="checkbox" id="tr-karate-basic">
+                                <span class="checkmark"></span>
+                                <div class="label-text">空手 基本動作</div>
+                            </label>
+                        </div>
+
+                        <!-- 型・自由入力 -->
+                        <div class="memo-area">
+                            <label>🥋 型・その他の稽古</label>
+                            <input type="text" id="tr-kata" placeholder="例: サンチン、ナイハンチ...">
+                        </div>
+
+                        <br>
+                        <button type="submit" class="save-btn secondary">修練を記録する</button>
+                    </form>
+                </section>
+
+                <!-- 修練履歴 -->
+                <section class="card slide-up">
+                    <h3>修練の記録</h3>
+                    <ul id="training-history-list">
+                        <!-- JS生成 -->
+                    </ul>
+                </section>
+            </div>
+
+            <!-- =========================
+                 タブ3: ログ
+                 ========================= -->
+            <div id="tab-log" class="tab-content">
+                <section class="card slide-up">
+                    <h3>1週間の調子</h3>
+                    <div class="chart-container">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </section>
+
+                <section class="card slide-up">
+                    <h3>冒険の履歴</h3>
+                    <ul id="history-list-full"></ul>
+                </section>
+            </div>
+
+            <!-- =========================
+                 タブ4: 設定
+                 ========================= -->
+            <div id="tab-settings" class="tab-content">
+                <section class="card slide-up">
+                    <h3>世界観を選ぶ</h3>
+                    <div class="theme-selector">
+                        <button class="theme-btn active" onclick="setTheme('forest')">🌿 森の癒やし</button>
+                        <button class="theme-btn" onclick="setTheme('fantasy')">⚔️ 冒険の書</button>
+                    </div>
+                </section>
+                <section class="card slide-up">
+                    <h3>目標設定</h3>
+                    <div class="custom-goal-area">
+                        <label>今の目標・クエスト</label>
+                        <input type="text" id="custom-goal" placeholder="例: 眉間を緩める" onchange="saveGoal(this.value)">
+                    </div>
+                </section>
+                <section class="card slide-up">
+                    <h3>チェック項目設定</h3>
+                    <div id="settings-toggles"></div>
+                </section>
+                <section class="card slide-up">
+                    <h3>データ管理</h3>
+                    <button onclick="clearHistory()" class="small-btn danger">履歴をすべてリセット</button>
+                </section>
+            </div>
+        </main>
+
+        <!-- 下部ナビゲーション (4つに増えました) -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="switchTab('home')">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">ホーム</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('training')">
+                <span class="nav-icon">⚔️</span>
+                <span class="nav-label">修練</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('log')">
+                <span class="nav-icon">📜</span>
+                <span class="nav-label">ログ</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('settings')">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">設定</span>
+            </button>
+        </nav>
+
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
