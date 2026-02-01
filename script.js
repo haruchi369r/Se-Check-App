@@ -46,9 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateStatusDisplay(); // ステータスバー更新
     renderChart();
+    loadDailyHistory(); // 履歴タブ初期化
 
     const refreshBtn = document.getElementById('refresh-affirmation');
     if (refreshBtn) refreshBtn.addEventListener('click', showRandomAffirmation);
+    loadPrescription();
 });
 
 // --- Phase 6: 朝夜切り替え ---
@@ -168,6 +170,12 @@ function switchTab(tabId) {
     }
     if (tabId === 'training') {
         loadTrainingHistoryV3();
+    }
+    if (tabId === 'column') {
+        initColumnTab();
+    }
+    if (tabId === 'library') {
+        initLibraryTab();
     }
 }
 
@@ -409,9 +417,26 @@ function saveDailyLog() {
         }
     }
 
+    // ローカルストレージに保存
     localStorage.setItem(key, JSON.stringify(todayData));
+
+    // うさぎが反応
+    rabbitReact('saved', 'データを保存したよ！');
+
     updateStatusDisplay();
-    loadFullHistory(); // 履歴更新
+    renderChart();
+    loadDailyHistory();
+
+    // 親密度+1
+    increaseIntimacy(1);
+
+    // データ表示更新
+    loadDailyLogV3();
+
+    // AI分析トリガー（朝のデータ保存時のみ）
+    if (currentMode === 'morning') {
+        analyzeWithAI(todayData);
+    }
 }
 
 // --- Phase 6: 修練保存 (V3) ---
@@ -483,18 +508,16 @@ function saveTraining() {
 
 // 従来の履歴表示 (Training)
 function loadTrainingHistory() {
-    let history = JSON.parse(localStorage.getItem('seCheckTraining')) || [];
-    const list = document.getElementById('training-history-list');
+    const logs = JSON.parse(localStorage.getItem('seCheckTraining')) || [];
+    const list = document.getElementById('training-list');
     if (!list) return;
     list.innerHTML = '';
 
-    const todayStr = new Date().toLocaleDateString();
-
-    history.slice(0, 10).forEach(item => {
+    logs.slice(0, 10).forEach(item => {
         const li = document.createElement('li');
-        let content = [];
-        if (item.steps > 0) content.push(`🐾 ${item.steps}歩`);
-        if (item.items.length > 0) content.push(`✅ ${item.items.join(', ')}`);
+        const content = [];
+        if (item.steps) content.push(`🚶 ${item.steps}歩`);
+        if (item.items && item.items.length > 0) content.push(`✅ ${item.items.join(', ')}`);
         if (item.kata) content.push(`🥋 ${item.kata}`);
 
         li.innerHTML = `
@@ -510,59 +533,142 @@ function loadTrainingHistory() {
     });
 }
 
-// --- 履歴表示 (Log - Phase 6対応) ---
-function loadFullHistory() {
-    // 過去ログ
-    let history = JSON.parse(localStorage.getItem('seCheckHistoryV2')) || [];
-    const list = document.getElementById('history-list-full');
+// --- 履歴モード切り替え ---
+let currentHistoryMode = 'daily';
+
+function switchHistoryMode(mode) {
+    currentHistoryMode = mode;
+    document.getElementById('history-mode-daily').classList.toggle('active', mode === 'daily');
+    document.getElementById('history-mode-good').classList.toggle('active', mode === 'good');
+
+    document.getElementById('history-daily').style.display = mode === 'daily' ? 'block' : 'none';
+    document.getElementById('history-good').style.display = mode === 'good' ? 'block' : 'none';
+
+    if (mode === 'daily') {
+        loadDailyHistory();
+    } else {
+        loadGoodMemories();
+    }
+}
+
+// --- 日々の記録タブ (スコア平均+できごと) ---
+function loadDailyHistory() {
+    const list = document.getElementById('history-list-daily');
     if (!list) return;
     list.innerHTML = '';
 
-    // 今日のデータをまず表示
-    const key = `seCheckDaily_${getTodayKey()}`;
-    const today = JSON.parse(localStorage.getItem(key));
+    // 直近7日分のデータを取得
+    for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString();
+        const key = `seCheckDaily_${dateStr}`;
+        const dailyData = JSON.parse(localStorage.getItem(key));
 
-    if (today) {
+        if (!dailyData) continue;
+
         const li = document.createElement('li');
-        li.style.borderLeft = "5px solid var(--accent)";
-        li.style.background = "var(--accent-light)"; // Highlight today
+        li.style.borderLeft = i === 0 ? "5px solid var(--accent)" : "3px solid var(--accent-light)";
 
-        let morningHTML = today.morning_recorded ?
-            `<div><b>☀️ 朝:</b> スコア平均 ${calcAvg(today.morning.scores)}</div>` : '<div>☀️ 朝: 未記録</div>';
+        // 朝のスコア平均
+        let morningAvg = '-';
+        if (dailyData.morning && dailyData.morning.scores) {
+            morningAvg = calcAvg(dailyData.morning.scores);
+        }
 
-        let nightHTML = today.night_recorded ?
-            `<div><b>🌙 夜:</b> event:${today.night.event}</div>` : '<div>🌙 夜: 未記録</div>';
+        // できごと・メモ
+        const memo = dailyData.morning?.memo || '';
+        const event = dailyData.night?.event || '';
 
-        li.innerHTML = `
-            <div class="log-header">
-                <span>📅 今日 (${getTodayKey()})</span>
-                <span>修正可能</span>
-            </div>
-            <div class="log-main">
-                ${morningHTML}
-                ${nightHTML}
-                <div style="font-size:0.8rem; margin-top:5px;">📝 ${today.morning?.memo || today.night?.memo || ""}</div>
-            </div>
-        `;
+        let content = `<div class="log-header">
+            <span>📅 ${dateStr}${i === 0 ? ' (今日)' : ''}</span>
+            <span>朝の平均: ${morningAvg}</span>
+        </div>
+        <div class="log-main">`;
+
+        if (memo) content += `<div><strong>朝メモ:</strong> ${memo}</div>`;
+        if (event) content += `<div><strong>今日の出来事:</strong> ${event}</div>`;
+        if (!memo && !event) content += '<div style="color:var(--text-sub);">記録なし</div>';
+
+        content += '</div>';
+        li.innerHTML = content;
         list.appendChild(li);
     }
+}
 
-    history.slice(0, 20).forEach(item => {
-        // 今日の分と重複しないように日付チェックすべきだが簡易実装
-        if (item.date === new Date().toLocaleDateString()) return;
+// --- よかったことタブ (😁🥺🌱のみ1週間分) ---
+function loadGoodMemories() {
+    const list = document.getElementById('history-list-good');
+    if (!list) return;
+    list.innerHTML = '';
 
+    const goodItems = [];
+
+    // 直近7日分のデータから良かったことを収集
+    for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString();
+        const key = `seCheckDaily_${dateStr}`;
+        const dailyData = JSON.parse(localStorage.getItem(key));
+
+        if (!dailyData || !dailyData.night) continue;
+
+        // 😁 楽しかった
+        if (dailyData.night.fun) {
+            goodItems.push({
+                date: dateStr,
+                icon: '😁',
+                type: '楽しかった',
+                content: dailyData.night.fun
+            });
+        }
+
+        // 🥺 心が動いた
+        if (dailyData.night.moved) {
+            goodItems.push({
+                date: dateStr,
+                icon: '🥺',
+                type: '心が動いた',
+                content: dailyData.night.moved
+            });
+        }
+
+        // 🌱 成長・発見
+        if (dailyData.night.growth) {
+            goodItems.push({
+                date: dateStr,
+                icon: '🌱',
+                type: '成長・発見',
+                content: dailyData.night.growth
+            });
+        }
+    }
+
+    if (goodItems.length === 0) {
+        list.innerHTML = '<li style="color:var(--text-sub); text-align:center; padding:2rem;">まだ記録がありません</li>';
+        return;
+    }
+
+    goodItems.forEach(item => {
         const li = document.createElement('li');
+        li.style.borderLeft = `5px solid var(--accent)`;
         li.innerHTML = `
             <div class="log-header">
-                <span>📅 ${item.date} ${item.time}</span>
-                <span>Avg: ${item.average}</span>
+                <span>${item.icon} ${item.type}</span>
+                <span style="font-size:0.9rem; color:var(--text-sub);">${item.date}</span>
             </div>
             <div class="log-main">
-                ${item.memo || '-'}
+                ${item.content}
             </div>
         `;
         list.appendChild(li);
     });
+}
+
+// 初期化時に呼ばれる（互換性のため残す）
+function loadFullHistory() {
+    loadDailyHistory();
 }
 
 function calcAvg(scores) {
@@ -579,19 +685,69 @@ function clearHistory() {
     }
 }
 
-// グラフ (簡易: 従来のHistoryV2のみ参照)
+// グラフモード管理
+let currentGraphMode = 'morning'; // 'morning' or 'combined'
+
+function switchGraphMode(mode) {
+    currentGraphMode = mode;
+    document.getElementById('graph-mode-morning').classList.toggle('active', mode === 'morning');
+    document.getElementById('graph-mode-combined').classList.toggle('active', mode === 'combined');
+    renderChart();
+}
+
+// グラフ (日次データから生成)
 function renderChart() {
     const ctx = document.getElementById('weeklyChart');
     if (!ctx) return;
+
     const theme = document.body.getAttribute('data-theme') || 'forest';
     const isFantasy = (theme === 'fantasy');
     const colorMain = isFantasy ? '#c5a059' : '#4a7c59';
 
-    let history = JSON.parse(localStorage.getItem('seCheckHistoryV2')) || [];
-    // ここも本来はDailyデータを集計すべき
-    const sortedData = [...history].reverse().slice(-7);
-    const labels = sortedData.map(item => item.date.slice(5));
-    const avgPoints = sortedData.map(item => item.average);
+    // 直近7日分のデータを取得
+    const chartData = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toLocaleDateString();
+        const key = `seCheckDaily_${dateStr} `;
+        const dailyData = JSON.parse(localStorage.getItem(key));
+
+        let avgScore = null;
+
+        if (dailyData) {
+            if (currentGraphMode === 'morning') {
+                // 朝のスコア平均
+                if (dailyData.morning && dailyData.morning.scores) {
+                    avgScore = calcAvg(dailyData.morning.scores);
+                }
+            } else {
+                // 朝+夜の総合平均
+                const scores = [];
+                if (dailyData.morning && dailyData.morning.scores) {
+                    scores.push(...Object.values(dailyData.morning.scores));
+                }
+                // 夜のスコアも加味（体の疲れ、メンタルの疲れなど）
+                if (dailyData.night) {
+                    if (dailyData.night.bodyTired) scores.push(6 - dailyData.night.bodyTired); // 反転（疲れが少ない=良い）
+                    if (dailyData.night.mentalTired) scores.push(6 - dailyData.night.mentalTired);
+                    if (dailyData.night.stomach) scores.push(dailyData.night.stomach);
+                    if (dailyData.night.motivation) scores.push(dailyData.night.motivation);
+                }
+                if (scores.length > 0) {
+                    avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+                }
+            }
+        }
+
+        chartData.push({
+            date: `${d.getMonth() + 1}/${d.getDate()}`,
+            score: avgScore ? parseFloat(avgScore) : null
+        });
+    }
+
+    const labels = chartData.map(d => d.date);
+    const scores = chartData.map(d => d.score);
 
     if (myChart) myChart.destroy();
     myChart = new Chart(ctx, {
@@ -599,12 +755,25 @@ function renderChart() {
         data: {
             labels: labels,
             datasets: [{
-                label: '平均スコア',
-                data: avgPoints,
+                label: currentGraphMode === 'morning' ? '朝の平均スコア' : '総合スコア',
+                data: scores,
                 borderColor: colorMain,
                 backgroundColor: isFantasy ? 'rgba(197, 160, 89, 0.1)' : 'rgba(74, 124, 89, 0.1)',
-                tension: 0.3, fill: true
+                tension: 0.3,
+                fill: true,
+                spanGaps: true // null値をスキップして線を繋ぐ
             }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
         }
     });
 }
@@ -613,106 +782,126 @@ function renderChart() {
    Phase 8: 案内人NPCシステム
    ============================ */
 
-// NPCデータ
-const npcData = {
-    level0: { char: '🌱', name: '見習いの精霊', minLvl: 0 },
-    level10: { char: '🦉', name: '森の賢者', minLvl: 10 },
-    level20: { char: '🦄', name: '守護聖獣', minLvl: 20 },
-    // アイランドテーマ用
-    island_lvl0: { char: '🥥', name: 'ココナッツの妖精', minLvl: 0 },
-    island_lvl10: { char: '🦜', name: '南国の鳥', minLvl: 10 },
-    island_lvl20: { char: '🐢', name: '長老カメ', minLvl: 20 }
+// === うさぎNPC システム（画像対応可能） ===
+const rabbitExpressions = {
+    normal: { emoji: '🐰', image: null, description: '通常' },
+    happy: { emoji: '✨🐰', image: null, description: '喜び' },
+    sleepy: { emoji: '😴🐰', image: null, description: '眠そう' },
+    thinking: { emoji: '🤔🐰', image: null, description: '考え中' },
+    excited: { emoji: '🎉🐰', image: null, description: 'わくわく' },
+    loving: { emoji: '💕🐰', image: null, description: 'うれしい' }
 };
 
-// 会話リスト
-const npcDialogues = {
-    common: [
-        "今日も来てくれてありがとう！",
-        "無理しすぎないでね。",
-        "深呼吸、深呼吸〜。",
-        "水分とった？",
-        "君のペースでいいんだよ。",
-        "今日はどんな一日だった？"
+// うさぎの会話内容
+const rabbitDialogues = {
+    morning: [
+        "おはよう！今日もよろしくね",
+        "今日の体調はどうかな？",
+        "新しい一日の始まりだね"
     ],
-    weather: {
-        cold: ["寒いから温かくしてね。", "ホットココアがおいしい季節だね。"],
-        hot: ["水分補給を忘れないで！", "暑いね〜。涼しく過ごしてね。"],
-        rain: ["雨音って落ち着くよね。", "足元に気をつけてね。"],
-        snow: ["雪だ！！", "滑らないようにね。"]
-    },
-    intimacy: [
-        "君と話すと元気がもらえるよ。(❤️)",
-        "いつも頑張っててえらい！大好き！(❤️)",
-        "ずっと応援してるからね。(❤️)"
+    night: [
+        "今日もお疲れさま！",
+        "一日どうだった？",
+        "ゆっくり休んでね"
+    ],
+    saved: [
+        "記録できたね！",
+        "データ保存完了だよ",
+        "よくできました！"
+    ],
+    levelUp: [
+        "レベルアップしたよ！すごい！",
+        "継続の力って素敵だね",
+        "ここまでよく頑張ったね！"
+    ],
+    highIntimacy: [
+        "いつもありがとう",
+        "一緒に頑張ろうね",
+        "あなたのこと応援してるよ"
     ]
 };
 
-// NPC初期化
-function initNPC() {
-    updateNPCDisplay();
-}
+// うさぎNPCの初期化
+function initRabbitNPC() {
+    const intimacy = parseInt(localStorage.getItem('seCheckIntimacy')) || 0;
 
-// NPCの見た目更新
-function updateNPCDisplay() {
-    const s = getStatus();
-    const totalLvl = getLevel(s.stamina, staminaLevels) + getLevel(s.control, controlLevels);
-    const theme = localStorage.getItem('seCheckTheme') || 'forest';
-    
-    let charData = npcData.level0;
-    
-    // テーマとレベルで分岐
-    if (theme === 'island') {
-        if(totalLvl >= 20) charData = npcData.island_lvl20;
-        else if(totalLvl >= 10) charData = npcData.island_lvl10;
-        else charData = npcData.island_lvl0;
+    // 初回表示
+    updateRabbitDisplay('normal');
+
+    // 朝夜に応じた挨拶
+    const hour = new Date().getHours();
+    let dialogue;
+    if (hour >= 5 && hour < 12) {
+        dialogue = rabbitDialogues.morning[Math.floor(Math.random() * rabbitDialogues.morning.length)];
     } else {
-        if(totalLvl >= 20) charData = npcData.level20;
-        else if(totalLvl >= 10) charData = npcData.level10;
-        else charData = npcData.level0; // level0 (🌱)
+        dialogue = rabbitDialogues.night[Math.floor(Math.random() * rabbitDialogues.night.length)];
     }
 
-    const charEl = document.getElementById('npc-char');
-    if(charEl) charEl.textContent = charData.char;
+    // 親密度が高い場合は特別なメッセージ
+    if (intimacy > 50 && Math.random() < 0.3) {
+        dialogue = rabbitDialogues.highIntimacy[Math.floor(Math.random() * rabbitDialogues.highIntimacy.length)];
+    }
+
+    document.getElementById('npc-dialogue').textContent = dialogue;
 }
 
-// NPCに話しかける
-window.talkToNPC = function() {
-    const bubble = document.getElementById('npc-bubble');
-    if(!bubble) return;
+// うさぎの表情を更新
+function updateRabbitDisplay(expression) {
+    const npcChar = document.getElementById('npc-character');
+    const expr = rabbitExpressions[expression] || rabbitExpressions.normal;
 
-    // 吹き出し表示アニメーション
-    bubble.classList.remove('hidden');
-    bubble.classList.add('visible');
-    
-    // セリフ決定
-    const text = getNPCDialogue();
-    bubble.textContent = text;
-    
-    // 親密度アップ演出
-    showHeartEffect();
-    increaseIntimacy();
+    // 画像がある場合は画像を、ない場合は絵文字を表示
+    if (expr.image) {
+        npcChar.innerHTML = `<img src="${expr.image}" alt="${expr.description}" style="width:80px; height:80px;">`;
+    } else {
+        npcChar.textContent = expr.emoji;
+    }
+}
 
-    // 3秒後に消える
+// うさぎに反応させる（保存時などに呼ばれる）
+function rabbitReact(type, message) {
+    const npcDialogue = document.getElementById('npc-dialogue');
+
+    switch (type) {
+        case 'saved':
+            updateRabbitDisplay('happy');
+            npcDialogue.textContent = message || rabbitDialogues.saved[Math.floor(Math.random() * rabbitDialogues.saved.length)];
+            break;
+        case 'levelUp':
+            updateRabbitDisplay('excited');
+            npcDialogue.textContent = message || rabbitDialogues.levelUp[Math.floor(Math.random() * rabbitDialogues.levelUp.length)];
+            break;
+        case 'thinking':
+            updateRabbitDisplay('thinking');
+            npcDialogue.textContent = message || "AIに聞いてみるね...";
+            break;
+        case 'loving':
+            updateRabbitDisplay('loving');
+            npcDialogue.textContent = message || "いつも一緒にいるよ";
+            break;
+        default:
+            updateRabbitDisplay('normal');
+            if (message) npcDialogue.textContent = message;
+    }
+
+    // 3秒後に通常に戻る
     setTimeout(() => {
-        bubble.classList.remove('visible');
-    }, 4000);
+        updateRabbitDisplay('normal');
+    }, 3000);
+}
+
+// 初期化用（後方互換性のため）
+function initNPC() {
+    initRabbitNPC();
+}
+
+function updateNPCDisplay() {
+    // 既にうさぎNPCで処理されているのでスキップ
 }
 
 function getNPCDialogue() {
-    // 親密度が高いとデレる
-    const intimacy = Number(localStorage.getItem('seCheckIntimacy')) || 0;
-    if (intimacy > 10 && Math.random() > 0.7) {
-        return randomPick(npcDialogues.intimacy);
-    }
-
-    // 天気による会話
-    if (weatherData && weatherData.temp) {
-        if (weatherData.temp < 10) return randomPick(npcDialogues.weather.cold);
-        if (weatherData.temp > 28) return randomPick(npcDialogues.weather.hot);
-    }
-    
-    // 通常会話
-    return randomPick(npcDialogues.common);
+    // 既にうさぎNPCで処理されているのでスキップ
+    return "";
 }
 
 function randomPick(arr) {
@@ -733,7 +922,7 @@ function showHeartEffect() {
     heart.style.left = '50%';
     heart.style.bottom = '100%';
     area.appendChild(heart);
-    
+
     setTimeout(() => {
         heart.remove();
     }, 1000);
@@ -742,8 +931,875 @@ function showHeartEffect() {
 // ロード時に実行
 document.addEventListener('DOMContentLoaded', () => {
     // 既存のinitの下に追加で呼ばれるようにする
-    // ただしDOM読み込み順序に注意。今回は最後尾に追記しているので、
-    // 上のDOMContentLoadedリスナとは別に動く。
     initNPC();
+
+    // API Key復元
+    const savedKey = localStorage.getItem('seCheckApiKey');
+    if (savedKey && document.getElementById('gemini-api-key')) {
+        document.getElementById('gemini-api-key').value = savedKey;
+    }
 });
 
+
+/* ============================
+   Phase 9: AI分析機能 (Gemini)
+   ============================ */
+
+function saveApiKey(key) {
+    if (!key) return;
+    localStorage.setItem('seCheckApiKey', key.trim());
+}
+
+function getApiKey() {
+    return localStorage.getItem('seCheckApiKey');
+}
+
+// AI分析を実行する
+async function analyzeWithAI(dailyData) {
+    const apiKey = getApiKey();
+    if (!apiKey) return;
+
+    // 1. ログタブに移動して結果を待つ演出
+    switchTab('log');
+
+    const feedbackSection = document.getElementById('ai-prescription');
+    const feedbackContent = document.getElementById('ai-message-content');
+
+    feedbackSection.style.display = 'block';
+    feedbackContent.textContent = "身体データと照合中... (カルテ作成)";
+    feedbackSection.scrollIntoView({ behavior: 'smooth' });
+
+    // 2. データ準備
+    const status = getStatus(); // 継続レベル (経験値)
+
+    // 特定部位のスコア比較 (直近7回分の平均を算出)
+    const recentStats = calculateRecentStats();
+
+    // 今回のスコア (朝ならMorning, 夜ならNightから取得。なければ空)
+    const currentScores = dailyData.morning.scores || {};
+
+    // 比較データのテキスト化
+    let comparisonText = "";
+    if (Object.keys(currentScores).length > 0) {
+        comparisonText += "【部位別スコア分析 (現在値 vs 平均)】\n";
+        for (const [key, val] of Object.entries(currentScores)) {
+            const avg = recentStats[key];
+            const diff = avg ? (val - avg).toFixed(1) : 0;
+            const diffStr = diff > 0.5 ? "↑(好調)" : (diff < -0.5 ? "↓(不調)" : "→(通常)");
+            // アイテム名取得
+            const label = checkItems.find(i => i.id === key)?.label || key;
+            comparisonText += `- ${label}: ${val} (平均 ${avg ? avg.toFixed(1) : '-'}) ${diffStr}\n`;
+        }
+    } else {
+        comparisonText = "※今回は詳細な身体スコア入力なし\n";
+    }
+
+    // 3. プロンプト作成
+    const isNight = (currentMode === 'night');
+    const prompt = `
+【システムプロンプト】
+あなたは武道家（空手・太気拳）であり、身体操作の探求者「はる」です。
+ユーザー専属の「身体チューナー」として、入力されたデータ（Se-Check）をカルテのように分析し、論理的かつ静謐なフィードバックを行ってください。
+
+【ユーザーの設定・哲学】
+- 「体力Lv」「管理Lv」は「身体能力」ではなく、ここまでの「継続の証（経験値）」です。高ければ日々の積み重ねを称賛してください。
+- 重要なのは「今の身体の声」です。平均値との乖離を見て、身体のどこが滞っているかを見抜いてください。
+- あなたは騎士ではありません。道着を着て静かに語る武道家、あるいはNoteで思考を綴るクリエイターのような「静かで知的な」口調（デスマス調だが、落ち着いている）で話してください。
+
+【入力データ】
+- 継続レベル(経験値): 体力Lv.${getLevel(status.stamina, staminaLevels)} / 管理Lv.${getLevel(status.control, controlLevels)}
+- モード: ${isNight ? "夜（振り返り）" : "朝（チューニング）"}
+- ${comparisonText}
+- メモ・出来事: ${isNight ? dailyData.night.event : dailyData.morning.memo || "特になし"}
+
+【出力構成 (300文字程度)】
+1. **現状の分析 (Diagnosis)**: 
+   数値の偏りや平均との差から、今の身体システムの状態を論理的に言語化してください。（例：「平均より肩の緊張が強いようです。思考が先行して、重心が浮き上がっている可能性があります」）
+2. **継続への敬意 (Respect)**:
+   レベル（継続ポイント）を参照し、日々の鍛錬を静かに称えてください。
+3. **身体操作の処方箋 (Prescription)**:
+   空手や太気拳の身体操作に基づき、具体的な「骨格・意識の修正」を提案してください。（例：「坐骨を座面に垂直に刺すイメージで、腰椎のカーブを緩めましょう」）
+
+※絵文字は最低限に、落ち着いたトーンで。
+    `;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error?.message || 'API Error');
+        }
+
+        const aiText = data.candidates[0].content.parts[0].text;
+        feedbackContent.innerHTML = formatText(aiText);
+
+        // 処方箋を保存（その日1日表示を維持）
+        savePrescription(aiText, isNight);
+
+    } catch (e) {
+        console.error(e);
+        feedbackContent.textContent = "AIとの通信に失敗しました。(" + e.message + ")";
+    }
+}
+
+// 今日の日付キーを取得 (YYYY-MM-DD)
+function getTodayKey() {
+    const d = new Date();
+    return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+}
+
+// 処方箋を保存（日付とモード付き）
+function savePrescription(text, isNight) {
+    const today = getTodayKey();
+    localStorage.setItem('seCheckPrescription', JSON.stringify({
+        date: today,
+        mode: isNight ? 'night' : 'morning',
+        text: text,
+        timestamp: Date.now()
+    }));
+}
+
+// 処方箋をロード（ページ読み込み時）
+function loadPrescription() {
+    const saved = localStorage.getItem('seCheckPrescription');
+    if (!saved) return;
+
+    const data = JSON.parse(saved);
+    const today = getTodayKey();
+
+    // 日付が違う、または夜モードで新しいデータが入っている場合はクリア
+    if (data.date !== today) {
+        localStorage.removeItem('seCheckPrescription');
+        return;
+    }
+
+    // 夜のデータが入ったらクリア（朝の処方箋を消す）
+    const todayData = JSON.parse(localStorage.getItem(`seCheckDaily_${today}`));
+    if (data.mode === 'morning' && todayData && todayData.night && Object.keys(todayData.night).length > 0) {
+        localStorage.removeItem('seCheckPrescription');
+        return;
+    }
+
+    // 表示
+    const feedbackSection = document.getElementById('ai-prescription');
+    const feedbackContent = document.getElementById('ai-message-content');
+    if (feedbackSection && feedbackContent) {
+        feedbackSection.style.display = 'block';
+        feedbackContent.innerHTML = formatText(data.text);
+    }
+}
+
+// 直近のデータから平均値を計算するヘルパー
+function calculateRecentStats() {
+    const stats = {};
+    const counts = {};
+
+    // localStorageの全キーから 'seCheckDaily_' を探す (非効率だが件数少ないのでOK)
+    // 本当は履歴配列を持っているならそこから引くのが早いが、詳細スコア(morning.scores)は履歴配列(historyV2)に入ってない場合があるため
+    // ここでは簡易的に直近1週間分の日付キーを生成してチェックする
+
+    for (let i = 1; i <= 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = `seCheckDaily_${d.toLocaleDateString()}`;
+        const data = JSON.parse(localStorage.getItem(key));
+
+        if (data && data.morning && data.morning.scores) {
+            for (const [k, v] of Object.entries(data.morning.scores)) {
+                stats[k] = (stats[k] || 0) + v;
+                counts[k] = (counts[k] || 0) + 1;
+            }
+        }
+    }
+
+    const averages = {};
+    for (const k of Object.keys(stats)) {
+        averages[k] = stats[k] / counts[k];
+    }
+    return averages;
+}
+
+// 簡易テキスト整形
+function formatText(text) {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+}
+
+// --- コラムタブ機能 ---
+
+// 1. コラムデータの読み込み
+// 1. コラムデータの読み込み (デフォルトデータを持たせておく)
+const defaultColumnData = {
+    "systematic": [
+        {
+            "id": "col-theory-001",
+            "title": "INFJ、INTJの必須習得スキルは「意図的に緩む力」かも",
+            "url": "https://note.com/jagapachi3/n/nb318d967396a",
+            "category": "心身のリセット",
+            "tags": ["ストレス", "疲れ", "休息", "思考", "回復"],
+            "summary": "無自覚に疲れを溜めがちなINFJ/INTJ必見。筋肉の緊張を一度高めてから解放する「軍隊式」脱力法など、具体的な心身のリセット術を解説します。",
+            "thumbnail": null,
+            "isPinned": true
+        },
+        {
+            "id": "col-theory-002",
+            "title": "INFJやINTJはご自愛をシステム化するのがいいのかも",
+            "url": "https://note.com/jagapachi3/n/n2b2d2f7f8f9a",
+            "category": "セルフケア理論",
+            "tags": ["頭", "ストレス", "疲れ", "回復", "継続"],
+            "summary": "感覚に頼らない体調管理。「数値化」や「制限時間」を設けることで、思考優位なタイプが無理なく健康を維持するための仕組みを提案します。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-003",
+            "title": "肩こり解消の原理？柔道整復師に聞いたコツ",
+            "url": "https://note.com/jagapachi3/n/n1f2e3d4c5b6a",
+            "category": "身体操作",
+            "tags": ["肩", "姿勢", "疲れ", "回復", "休息"],
+            "summary": "ガチガチの肩をほぐすには「あえて一度強い緊張を加える」のが正解？筋肉の性質を利用した、自分でも試せる具体的な指圧のコツを解説。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-004",
+            "title": "身体感覚の追求の道のりは長いなぁと",
+            "url": "https://note.com/jagapachi3/n/n9a8b7c6d5e4f",
+            "category": "身体操作",
+            "tags": ["姿勢", "肩", "疲れ", "継続", "回復"],
+            "summary": "猫背ゲーマーが武道2年で姿勢激変。自分の体の「ズレ」に気づき、パッシブアビリティとして良い状態を保つための身体操作の重要性。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-005",
+            "title": "意味探しのグルグル思考を終わらせるための気付き",
+            "url": "https://note.com/jagapachi3/n/ne4d5c6b7a8f9",
+            "category": "メンタルケア",
+            "tags": ["思考", "ストレス", "回復", "呼吸", "休息"],
+            "summary": "思考の迷宮にハマりやすい方へ。「今」を肯定し、メンタルヘルスを整えるための思考の処方箋。虚無感を乗り越えるヒントについて。",
+            "thumbnail": null,
+            "isPinned": false
+        }
+    ],
+    "expedition": [
+        {
+            "id": "col-log-101",
+            "title": "（一言日記）年末年始リゾバから無事帰還した感想",
+            "url": "https://note.com/jagapachi3/n/n1a2b3c4d5e6f",
+            "category": "遠征ログ",
+            "tags": ["疲れ", "回復", "南伊豆", "リゾバ"],
+            "summary": "南伊豆での過酷かつ充実した2週間のリゾバ記録。1日1万8千歩の労働と自然がもたらした刺激と幸福感について。",
+            "date": "2026-01-06",
+            "thumbnail": null
+        },
+        {
+            "id": "col-log-102",
+            "title": "彼氏なしアラサー女の積極的クリスマスの過ごし方",
+            "url": "https://note.com/jagapachi3/n/n7f8e9d0c1b2a",
+            "category": "遠征ログ",
+            "tags": ["南伊豆", "休息", "リフレッシュ", "クリスマス"],
+            "summary": "クリスマスに南伊豆へ！都会のノイズから離れ、現地の「今」に没入することで得られる心の平安と、環境を変える価値について。",
+            "date": "2025-12-27",
+            "thumbnail": null
+        },
+        {
+            "id": "col-log-103",
+            "title": "誰かのお手紙を読める喫茶店「天文図舘」での話",
+            "url": "https://note.com/jagapachi3/n/n4d5e6f7a8b9c",
+            "category": "遠征ログ",
+            "tags": ["思考", "ストレス", "阿佐ヶ谷", "メンタルケア"],
+            "summary": "阿佐ヶ谷の静寂な喫茶店への小遠征。他者の内面に触れる「手紙」を通じて自分を見つめ直す、至福のメンタルケア・タイムの記録。",
+            "date": "2025-12-24",
+            "thumbnail": null
+        }
+    ]
+};
+
+async function loadColumnData() {
+    try {
+        // ローカルファイル実行（file://）だとfetchが失敗することが多いため、
+        // 失敗した場合はあらかじめ定義したデータを使います。
+        const response = await fetch('./columns.json');
+        if (!response.ok) return defaultColumnData;
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.warn('columns.json の読み込みに失敗したため、内蔵データを使用します。', error);
+        return defaultColumnData;
+    }
+}
+
+// 2. コラムタブの初期化
+async function initColumnTab() {
+    const data = await loadColumnData();
+
+    // 体系的に学ぶセクション
+    renderSystematicColumns(data.systematic);
+
+    // 遠征ライブログセクション
+    renderExpeditionColumns(data.expedition);
+
+    // AI推薦
+    recommendColumn(data);
+}
+
+function renderSystematicColumns(columns) {
+    const container = document.getElementById('systematic-columns');
+    if (!container) return;
+
+    container.innerHTML = columns.map(col => {
+        const stocked = isStocked(col.id);
+        return `
+            <div class="column-card" style="position:relative;">
+                <div class="column-card-content" onclick="openColumn('${col.url}')">
+                    ${col.thumbnail ? `<img src="${col.thumbnail}" class="column-card-thumbnail" alt="${col.title}">` : ''}
+                    <div class="column-card-category">${col.category}</div>
+                    <div class="column-card-title">${col.title}</div>
+                    <div class="column-card-summary">${col.summary}</div>
+                </div>
+                <div class="column-card-footer">
+                    <button class="small-btn stock-btn ${stocked ? 'stocked' : ''}" 
+                        data-stock-id="${col.id}"
+                        onclick="toggleStock('${col.id}', event)">
+                        ${stocked ? '📌 済み' : '📌 ストック'}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderExpeditionColumns(columns) {
+    const container = document.getElementById('expedition-columns');
+    if (!container) return;
+
+    // 日付順にソート (新しい順)
+    const sorted = [...columns].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    container.innerHTML = sorted.map(col => {
+        const stocked = isStocked(col.id);
+        return `
+            <div class="column-list-item" style="position:relative;">
+                <div onclick="openColumn('${col.url}')" style="display:flex; width:100%; gap:15px;">
+                    <div class="column-list-date">${col.date}</div>
+                    <div class="column-list-content">
+                        <div class="column-card-title">${col.title}</div>
+                        <div class="column-card-summary">${col.summary}</div>
+                    </div>
+                </div>
+                <button class="small-btn stock-btn ${stocked ? 'stocked' : ''}" 
+                    data-stock-id="${col.id}"
+                    onclick="toggleStock('${col.id}', event)" 
+                    style="margin-left:10px;">
+                    ${stocked ? '📌' : '📌'}
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function openColumn(url) {
+    if (!url) return;
+    // 空白除去とセキュリティ対策
+    const cleanUrl = url.trim();
+    window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+}
+
+// 3. AI推薦ロジック
+function recommendColumn(columnData) {
+    const allColumns = [...columnData.systematic, ...columnData.expedition];
+
+    // 最近7日間の記録データを分析
+    const recentCheckData = getRecentCheckDataForRecommendation(7);
+    const bodyCondition = analyzeBodyConditionForRecommendation(recentCheckData);
+
+    // 各コラムのマッチングスコアを計算
+    const scored = allColumns.map(col => ({
+        ...col,
+        matchScore: calculateRecommendationScore(col, bodyCondition)
+    }));
+
+    // スコア順にソートして最高の一本を選ぶ
+    const recommended = scored.sort((a, b) => b.matchScore - a.matchScore)[0];
+
+    if (recommended && recommended.matchScore > 0) {
+        renderRecommendedColumn(recommended, bodyCondition);
+    } else {
+        renderDefaultRecommendation(allColumns);
+    }
+}
+
+// 最近7日分の localStorage データを取得
+function getRecentCheckDataForRecommendation(days) {
+    const results = [];
+    const today = new Date();
+
+    for (let i = 0; i < days; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const key = `seCheckDaily_${y} -${m} -${day} `;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            results.push(JSON.parse(saved));
+        }
+    }
+    return results;
+}
+
+// 体調データの要約
+function analyzeBodyConditionForRecommendation(recentData) {
+    const summary = {
+        issues: {},       // 部位ごとの低スコア(<=2)回数
+        keywords: new Set(),
+        patterns: []
+    };
+
+    recentData.forEach(day => {
+        if (day.morning) {
+            Object.entries(day.morning).forEach(([part, score]) => {
+                if (typeof score === 'number' && score <= 2) {
+                    summary.issues[part] = (summary.issues[part] || 0) + 1;
+                }
+            });
+            if (day.morning.memo) {
+                extractKeywordsToSet(day.morning.memo, summary.keywords);
+            }
+        }
+        if (day.night) {
+            if (day.night.event) {
+                extractKeywordsToSet(day.night.event, summary.keywords);
+            }
+        }
+    });
+
+    // パターン検出
+    if (summary.issues.shoulders >= 3) summary.patterns.push('stiff-shoulders');
+    if (summary.issues.back >= 3) summary.patterns.push('back-pain');
+    if (summary.issues.head >= 2 || summary.issues.brows >= 3) summary.patterns.push('mental-fatigue');
+
+    return summary;
+}
+
+function extractKeywordsToSet(text, set) {
+    const targetKeywords = ['姿勢', '腰', '肩', '首', '目', 'ストレス', '疲れ', '継続', '集中', '呼吸', '坐骨'];
+    targetKeywords.forEach(kw => {
+        if (text.includes(kw)) set.add(kw);
+    });
+}
+
+function calculateRecommendationScore(column, condition) {
+    let score = 0;
+
+    // タグマッチング (1つあたり10点)
+    if (column.tags) {
+        column.tags.forEach(tag => {
+            if (condition.keywords.has(tag)) score += 10;
+
+            // 部位とのマッチング
+            if (tag.includes('肩') && condition.issues.shoulders >= 2) score += 15;
+            if (tag.includes('腰') && condition.issues.back >= 2) score += 15;
+            if ((tag.includes('ストレス') || tag.includes('思考')) && condition.issues.brows >= 2) score += 15;
+        });
+    }
+
+    // パターンマッチング (30点)
+    if (condition.patterns.includes('stiff-shoulders') && column.tags?.includes('肩')) score += 30;
+    if (condition.patterns.includes('back-pain') && column.tags?.includes('腰')) score += 30;
+    if (condition.patterns.includes('mental-fatigue') && (column.tags?.some(t => t.includes('ストレス') || t.includes('休息')))) score += 30;
+
+    // ピン留めは基本スコア+5
+    if (column.isPinned) score += 5;
+
+    return score;
+}
+
+function renderRecommendedColumn(column, condition) {
+    const container = document.getElementById('recommended-column');
+    if (!container) return;
+
+    let reason = "最近の記録から、あなたへのおすすめを選びました。";
+    if (condition.patterns.includes('stiff-shoulders')) reason = "肩の重な感じが続いているようなので、このコラムが役立つかもしれません。";
+    else if (condition.patterns.includes('back-pain')) reason = "腰周りの違和感に寄り添った内容です。";
+    else if (condition.patterns.includes('mental-fatigue')) reason = "少し思考がお疲れ気味かもしれません。ふっと息を抜けるこちらをどうぞ。";
+
+    const stocked = isStocked(column.id);
+    container.innerHTML = `
+        <div style="position:relative; display:flex; flex-direction:column; height:100%;">
+            <div onclick="openColumn('${column.url}')" style="flex-grow:1;">
+                <div class="column-card-category">${column.category || 'コラム'}</div>
+                <div class="column-card-title">${column.title}</div>
+                <div class="column-card-summary">${column.summary}</div>
+                <div style="margin-top: 1rem; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px;">
+                    💡 ${reason}
+                </div>
+            </div>
+            <div class="column-card-footer">
+                <button class="small-btn stock-btn ${stocked ? 'stocked' : ''}" 
+                    data-stock-id="${column.id}"
+                    onclick="toggleStock('${column.id}', event)">
+                    ${stocked ? '📌 済み' : '📌 ストック'}
+                </button>
+            </div>
+        </div>
+    `;
+
+    // うさぎが通知
+    setTimeout(() => {
+        if (typeof rabbitReact === 'function') {
+            rabbitReact('normal', '新しいコラムをおすすめしておいたよ！読んでみてね 📚');
+        }
+    }, 1000);
+}
+
+function renderDefaultRecommendation(allColumns) {
+    const container = document.getElementById('recommended-column');
+    if (!container) return;
+
+    const fallback = allColumns.find(c => c.isPinned) || allColumns[0];
+    if (fallback) {
+        container.innerHTML = `
+            <div onclick="openColumn('${fallback.url}')">
+                <div class="column-card-category">${fallback.category || 'コラム'}</div>
+                <div class="column-card-title">${fallback.title}</div>
+                <div class="column-card-summary">${fallback.summary}</div>
+                <div style="margin-top: 1rem; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px;">
+                    💡 まずはこちらの記事から読んでみるのはいかがでしょう？
+                </div>
+            </div>
+            `;
+    }
+}
+
+// --- 内観の書斎 (Library) ロジック ---
+
+// 1. ストック機能
+function stockColumnItem(colId, event) {
+    if (event) event.stopPropagation();
+
+    loadColumnData().then(data => {
+        const all = [...data.systematic, ...data.expedition];
+        const item = all.find(c => c.id === colId);
+        if (item) {
+            stockItem({
+                id: item.id,
+                title: item.title,
+                content: item.summary,
+                url: item.url,
+                tags: item.tags,
+                category: item.category,
+                type: 'column',
+                date: new Date().toLocaleDateString()
+            });
+        }
+    });
+}
+
+function stockCurrentPrescription(btnElement) {
+    const content = document.getElementById('ai-message-content').innerText;
+    if (!content || content.includes('分析中')) return;
+
+    // ボタンの参照取得（引数がない場合は検索）
+    const btn = btnElement || document.querySelector('#ai-prescription .stock-btn');
+
+    // 既にストック済みかチェック（内容ベース）
+    let stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+    const textContent = content.trim();
+
+    // 内容が完全に一致するものが既に直近にあるか（過去の処方箋と同じ内容が偶然出ることもあるので、直近10件程度チェック）
+    const duplicates = stocked.slice(0, 10).some(s => s.type === 'prescription' && s.content.trim() === textContent);
+
+    if (duplicates) {
+        if (typeof rabbitReact === 'function') rabbitReact('normal', 'その処方箋はもう書斎にあるよ！');
+        if (btn) {
+            btn.innerHTML = '📌 済み';
+            btn.classList.add('stocked');
+        }
+        return;
+    }
+
+    // 現在の状況からタグを生成
+    const recentData = getRecentCheckDataForRecommendation(1);
+    const condition = analyzeBodyConditionForRecommendation(recentData);
+
+    stockItem({
+        id: 'presc-' + Date.now(),
+        title: 'はるからの処方箋 (' + new Date().toLocaleDateString() + ')',
+        content: content,
+        tags: Array.from(condition.keywords),
+        type: 'prescription',
+        date: new Date().toLocaleDateString()
+    });
+
+    // ボタンの見た目更新
+    if (btn) {
+        btn.innerHTML = '📌 済み';
+        btn.classList.add('stocked');
+    }
+}
+
+function isStocked(id) {
+    const stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+    return stocked.some(s => s.id === id);
+}
+
+function toggleStock(id, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    if (isStocked(id)) {
+        unstockItem(id);
+    } else {
+        stockColumnItem(id);
+    }
+}
+
+function updateStockButtons(id, isStocked) {
+    const buttons = document.querySelectorAll(`button[data-stock-id="${id}"]`);
+    buttons.forEach(btn => {
+        if (isStocked) {
+            btn.innerHTML = '📌 済み';
+            btn.classList.add('stocked');
+        } else {
+            btn.innerHTML = '📌 ストック';
+            btn.classList.remove('stocked');
+        }
+    });
+}
+
+function unstockItem(id) {
+    if (!confirm('この巻物を書斎から削除しますか？')) return;
+
+    let stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+    stocked = stocked.filter(s => s.id !== id);
+    localStorage.setItem('seCheckStocked', JSON.stringify(stocked));
+
+    updateStockButtons(id, false);
+
+    // 書斎タブならリスト再描画
+    const currentTab = document.querySelector('.tab-content.active')?.id;
+    if (currentTab === 'tab-library') {
+        renderStockedScrolls(stocked);
+        updateLibrarianMessage(stocked);
+    }
+}
+
+function handleUnstock(event, id) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    unstockItem(id);
+}
+
+function stockItem(item) {
+    let stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+
+    // 重複チェック
+    if (stocked.some(s => s.id === item.id)) {
+        return;
+    }
+
+    stocked.unshift(item);
+    localStorage.setItem('seCheckStocked', JSON.stringify(stocked));
+
+    // データIDが一致するボタンを更新
+    // 処方箋の場合、IDが動的に変わる可能性があるため、PrescriptionのID管理には注意が必要だが
+    // stockColumnItem経由ならIDは固定
+    updateStockButtons(item.id, true);
+
+    if (typeof rabbitReact === 'function') {
+        rabbitReact('joy', '大切な知恵を書斎にしまっておいたよ！✨');
+    }
+}
+
+// 2. 書斎タブの初期化
+async function initLibraryTab() {
+    const stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+    const columnData = await loadColumnData();
+
+    // グローバル関数として登録（HTMLから呼び出せるように）
+    window.handleUnstock = handleUnstock;
+
+    renderStockedScrolls(stocked);
+    renderDeskLetters(columnData.expedition);
+    updateLibrarianMessage(stocked);
+}
+
+function renderStockedScrolls(stocked) {
+    const container = document.getElementById('stocked-scrolls');
+    if (!container) return;
+
+    if (stocked.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#e6d5b8; opacity:0.6; padding:40px;">まだ巻物がありません。コラムや処方箋をストックしてみましょう。</p>';
+        return;
+    }
+
+    container.innerHTML = stocked.map(item => `
+        <div class="scroll-item">
+            <div class="scroll-header" onclick="toggleScroll(this.parentElement)">
+                <div class="scroll-title-container" style="overflow:hidden;">
+                    <div class="scroll-title">
+                        <span>📜</span> ${item.title}
+                    </div>
+                    ${item.tags ? `<div class="scroll-tags-container">${item.tags.map(t => `<span class="scroll-tag">${t}</span>`).join('')}</div>` : ''}
+                </div>
+                <div class="scroll-actions">
+                    <div style="font-size:0.8rem; opacity:0.6; margin-top:2px;">${item.date}</div>
+                    <button class="small-btn danger" onclick="handleUnstock(event, '${item.id}')">削除</button>
+                </div>
+            </div>
+            <div class="scroll-content">
+                <p>${item.content.replace(/\n/g, '<br>')}</p>
+                ${item.url ? `<button class="small-btn" onclick="openColumn('${item.url}')" style="margin-top:15px;">noteで詳しく読む</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderDeskLetters(expeditionColumns) {
+    const container = document.getElementById('desk-letters');
+    if (!container) return;
+
+    // イタリア遠征に関連するものを抽出
+    const italyLetters = expeditionColumns.filter(c => c.category === '遠征ログ' || (c.tags && c.tags.includes('イタリア')));
+
+    if (italyLetters.length === 0) {
+        container.innerHTML = '<p style="opacity:0.5; font-size:0.9rem;">まだ手紙は届いていないようです。</p>';
+        return;
+    }
+
+    container.innerHTML = italyLetters.map(col => `
+        <div class="desk-letter" onclick="openColumn('${col.url}')">
+            <h4>${col.title}</h4>
+            <div style="font-size:0.85rem; color:#666;">${col.date}</div>
+            <p style="font-size:0.9rem; margin-top:10px;">${col.summary}</p>
+            <div style="text-align:right; font-style:italic; font-size:0.8rem; color:var(--accent);">- Haruka in Italy</div>
+        </div>
+    `).join('');
+}
+
+function toggleScroll(element) {
+    element.classList.toggle('open');
+}
+
+// 3. 司書うさぎのメッセージ
+function updateLibrarianMessage(stocked) {
+    const messageEl = document.getElementById('librarian-message');
+    if (!messageEl) return;
+
+    const recentData = getRecentCheckDataForRecommendation(3);
+    const condition = analyzeBodyConditionForRecommendation(recentData);
+
+    let message = "「ここは、あなたが手に入れた知恵が集まる場所だよ。今のあなたに必要な巻物を選んでみてね。」";
+
+    // 体調とストックの照合
+    if (condition.patterns.includes('stiff-shoulders')) {
+        const sub = stocked.find(s => s.tags && s.tags.some(t => t.includes('肩')));
+        if (sub) message = `「肩の重さが気になっているね。さっきストックした『${sub.title}』を読み返してみるのが一番の近道だよ。」`;
+    } else if (condition.patterns.includes('back-pain')) {
+        const sub = stocked.find(s => s.tags && s.tags.some(t => t.includes('腰')));
+        if (sub) message = `「腰の違和感に負けないように。書斎にある『${sub.title}』の知恵を思い出して、少し体を動かしてみようか。」`;
+    } else if (condition.patterns.includes('mental-fatigue')) {
+        message = "「少し思考がお疲れ気味だね。今は新しい情報を入れるより、ストックした文章をゆっくり眺めて深呼吸するのがおすすめだよ。」";
+    }
+
+    messageEl.innerText = message;
+}
+
+// 4. 知恵の統合 (AI Synthesis)
+async function synthesizeWisdom() {
+    const stocked = JSON.parse(localStorage.getItem('seCheckStocked') || '[]');
+    if (stocked.length < 2) {
+        alert('知恵を統合するには、少なくとも2つ以上の項目をストックしてください。');
+        return;
+    }
+
+    const apiKey = localStorage.getItem('seCheckApiKey');
+    if (!apiKey) {
+        alert('設定タブでGemini API Keyを登録してください。');
+        return;
+    }
+
+    // データ整合性チェック
+    const recentData = typeof getRecentCheckDataForRecommendation === 'function'
+        ? getRecentCheckDataForRecommendation(3)
+        : getRecentCheckData(3);
+
+    const condition = typeof analyzeBodyConditionForRecommendation === 'function'
+        ? analyzeBodyConditionForRecommendation(recentData)
+        : analyzeBodyCondition(recentData);
+
+    const btn = document.getElementById('synthesis-btn');
+    const resultArea = document.getElementById('synthesis-result');
+    const initialArea = document.getElementById('synthesis-initial');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '知恵を集約中...';
+    }
+
+    // プロンプト生成 (エラー対策を含む)
+    const keywords = Array.from(new Set(stocked.flatMap(s => s.tags || []))).join(', ');
+    const titles = stocked.map(s => s.title).join(' / ');
+
+    const prompt = `あなたは身体操作とセルフケアの専門家です。
+        ユーザーがストックした以下の知恵（キーワード: ${keywords}）と、
+        最近の体調（パターンの分析: ${condition.patterns.join(', ')}）を組み合わせて、
+「今のこのユーザーのためだけの究極の身体操作のコツ」を100文字〜150文字程度で生成してください。
+
+        文体は、落ち着いた、しかし力強い指導者のような口調で。
+        複数の要素を組み合わせた具体的な動作のヒントを含めてください。`;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text;
+
+        initialArea.style.display = 'none';
+        resultArea.style.display = 'block';
+        resultArea.innerHTML = `
+            <div style="font-family:'Shippori Mincho', serif; border-bottom:1px solid #d4af37; padding-bottom:10px; margin-bottom:10px; font-weight:bold; color:#d4af37;">
+                📜 統合された知恵の結晶
+            </div>
+            <div>${text.replace(/\n/g, '<br>')}</div>
+            <button class="small-btn" onclick="document.getElementById('synthesis-initial').style.display='block'; document.getElementById('synthesis-result').style.display='none'; document.getElementById('synthesis-btn').disabled=false; document.getElementById('synthesis-btn').innerText='知恵を統合する';" style="margin-top:15px; opacity:0.7;">戻る</button>
+        `;
+
+        rabbitReact('joy', 'すごい！バラバラだった知恵がひとつに繋がったね！');
+
+    } catch (error) {
+        console.error('Synthesis failed:', error);
+        alert('知恵の統合に失敗しました。APIキーやネットワークを確認してください。');
+        btn.disabled = false;
+        btn.innerText = '知恵を統合する';
+    }
+}
+
+// グローバルスコープへの公開 (HTMLからの呼び出し用)
+window.openColumn = openColumn;
+window.toggleStock = toggleStock;
+window.handleUnstock = handleUnstock;
+window.stockColumnItem = stockColumnItem;
+window.switchTab = switchTab;
+window.synthesizeWisdom = synthesizeWisdom;

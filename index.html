@@ -16,6 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -63,10 +64,10 @@
                  ========================= -->
             <div id="tab-home" class="tab-content active">
 
-                <!-- NPC Area -->
-                <div id="npc-area" onclick="talkToNPC()">
-                    <div id="npc-bubble" class="hidden">今日も元気？</div>
-                    <div id="npc-char">🌱</div>
+                <!-- NPC（うさぎ） -->
+                <div id="npc-area">
+                    <div id="npc-character" class="npc-char">🐰</div>
+                    <div id="npc-dialogue" class="npc-bubble">ようこそ！</div>
                 </div>
 
                 <!-- 朝夜切り替えスイッチ (Phase 6) -->
@@ -249,19 +250,136 @@
             <div id="tab-log" class="tab-content">
                 <section class="card slide-up">
                     <h3>1週間の調子</h3>
+
+                    <!-- グラフモード切り替え -->
+                    <div class="day-night-switch" style="margin-bottom:15px;">
+                        <button id="graph-mode-morning" class="mode-btn active" onclick="switchGraphMode('morning')">☀️
+                            朝のみ</button>
+                        <button id="graph-mode-combined" class="mode-btn" onclick="switchGraphMode('combined')">🌓
+                            朝+夜</button>
+                    </div>
+
                     <div class="chart-container">
                         <canvas id="weeklyChart"></canvas>
                     </div>
                 </section>
 
+                <!-- AI Prescripton (AI処方箋: Medical Chart View) -->
+                <section id="ai-prescription" class="card fade-in"
+                    style="display:none; border-left: 5px solid var(--accent);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.5rem;">💌</span>
+                            <h3 style="margin:0; border:none; color:var(--accent); font-weight:bold;">はるからの処方箋</h3>
+                        </div>
+                        <button class="small-btn stock-btn" onclick="stockCurrentPrescription()"
+                            style="padding: 4px 8px; font-size: 0.75rem;">📌 ストック</button>
+                    </div>
+                    <div id="ai-message-content" style="font-size:0.95rem; line-height:1.6; white-space: pre-wrap;">
+                        カルテ分析中...
+                    </div>
+                </section>
+
+                <!-- 履歴サブタブ切り替え -->
                 <section class="card slide-up">
-                    <h3>冒険の履歴</h3>
-                    <ul id="history-list-full"></ul>
+                    <div class="day-night-switch" style="margin-bottom:15px;">
+                        <button id="history-mode-daily" class="mode-btn active" onclick="switchHistoryMode('daily')">📊
+                            日々の記録</button>
+                        <button id="history-mode-good" class="mode-btn" onclick="switchHistoryMode('good')">✨
+                            よかったこと</button>
+                    </div>
+
+                    <!-- 日々の記録タブ (スコア平均+できごと) -->
+                    <div id="history-daily" style="display:block;">
+                        <h3>日々の記録</h3>
+                        <ul id="history-list-daily"></ul>
+                    </div>
+
+                    <!-- よかったことタブ (😁🥺🌱のみ) -->
+                    <div id="history-good" style="display:none;">
+                        <h3>よかったこと (1週間)</h3>
+                        <ul id="history-list-good"></ul>
+                    </div>
                 </section>
             </div>
 
             <!-- =========================
-                 タブ4: 設定
+                 タブ4: コラム
+                 ========================= -->
+            <div id="tab-column" class="tab-content">
+
+                <!-- AIうさぎの推薦セクション -->
+                <section class="card slide-up" id="column-recommendation">
+                    <h3>🐰 はるからのおすすめ</h3>
+                    <div id="recommended-column" class="column-card-featured">
+                        <p style="text-align: center; opacity: 0.7;">データを読み込み中...</p>
+                    </div>
+                </section>
+
+                <!-- 体系的に学ぶ -->
+                <section class="card slide-up">
+                    <h3>📚 体系的に学ぶ</h3>
+                    <div id="systematic-columns" class="column-grid">
+                        <p style="text-align: center; opacity: 0.7;">データを読み込み中...</p>
+                    </div>
+                </section>
+
+                <!-- 遠征ライブログ -->
+                <section class="card slide-up">
+                    <h3>🗺️ 遠征ライブログ</h3>
+                    <div id="expedition-columns" class="column-list">
+                        <p style="text-align: center; opacity: 0.7;">データを読み込み中...</p>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- =========================
+                 タブ5: 内観の書斎
+                 ========================= -->
+            <div id="tab-library" class="tab-content library-theme">
+                <header class="library-header">
+                    <h2>内観の書斎</h2>
+                    <div id="librarian-rabbit-area" class="librarian-area card">
+                        <!-- 司書うさぎのメッセージ -->
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <div id="librarian-rabbit-icon" style="font-size: 2.5rem;">🐰</div>
+                            <div id="librarian-message" style="font-size: 0.9rem; font-style: italic;">
+                                「ここは、あなたが手に入れた知恵が集まる場所だよ。今のあなたに必要な巻物を選んでみてね。」
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- 知恵の統合 -->
+                <section class="card synthesis-card slide-up">
+                    <h3>✨ 知恵の統合</h3>
+                    <div id="synthesis-initial">
+                        <p style="font-size:0.85rem; opacity:0.8; margin-bottom:10px;">
+                            ストックした複数の巻物から、今のあなた専用の「究極のコツ」を生成します。</p>
+                        <button id="synthesis-btn" class="save-btn" onclick="synthesizeWisdom()">知恵を統合する</button>
+                    </div>
+                    <div id="synthesis-result" class="synthesis-result-area" style="display:none;">
+                        <!-- AIが生成した統合メッセージ -->
+                    </div>
+                </section>
+
+                <!-- ストックされた巻物リスト -->
+                <div id="stocked-scrolls" class="scrolls-container">
+                    <!-- ここに巻物が表示される -->
+                </div>
+
+                <!-- イタリアからの手紙 -->
+                <section class="card desk-area slide-up">
+                    <h3>✉️ 机の上の手紙</h3>
+                    <div id="desk-letters" class="letters-container">
+                        <!-- ここにイタリア遠征記事が表示される -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- =========================
+                 タブ5: 設定
                  ========================= -->
             <div id="tab-settings" class="tab-content">
                 <section class="card slide-up">
@@ -284,6 +402,19 @@
                     <div id="settings-toggles"></div>
                 </section>
                 <section class="card slide-up">
+                    <h3>AI連携設定</h3>
+                    <div class="custom-goal-area">
+                        <label>Gemini API Key</label>
+                        <input type="password" id="gemini-api-key" placeholder="AI Studioのキーを貼り付け"
+                            onchange="saveApiKey(this.value)">
+                        <p style="font-size:0.8rem; color:var(--text-sub); margin-top:5px;">
+                            ※キーは端末内にのみ保存されます。<br>
+                            空欄だとAI機能はオフになります。
+                        </p>
+                    </div>
+                </section>
+
+                <section class="card slide-up">
                     <h3>データ管理</h3>
                     <button onclick="clearHistory()" class="small-btn danger">履歴をすべてリセット</button>
                 </section>
@@ -300,9 +431,17 @@
                 <span class="nav-icon">⚔️</span>
                 <span class="nav-label">修練</span>
             </button>
+            <button class="nav-item" onclick="switchTab('column')">
+                <span class="nav-icon">📚</span>
+                <span class="nav-label">コラム</span>
+            </button>
             <button class="nav-item" onclick="switchTab('log')">
                 <span class="nav-icon">📜</span>
                 <span class="nav-label">ログ</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('library')">
+                <span class="nav-icon">📖</span>
+                <span class="nav-label">書斎</span>
             </button>
             <button class="nav-item" onclick="switchTab('settings')">
                 <span class="nav-icon">⚙️</span>

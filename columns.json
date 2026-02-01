@@ -1,0 +1,131 @@
+{
+    "systematic": [
+        {
+            "id": "col-theory-001",
+            "title": "INFJ、INTJの必須習得スキルは「意図的に緩む力」かも",
+            "url": "https://note.com/jagapachi3/n/nb318d967396a",
+            "category": "心身のリセット",
+            "tags": [
+                "ストレス",
+                "疲れ",
+                "休息",
+                "思考",
+                "回復"
+            ],
+            "summary": "無自覚に疲れを溜めがちなINFJ/INTJ必見。筋肉の緊張を一度高めてから解放する「軍隊式」脱力法など、具体的な心身のリセット術を解説します。",
+            "thumbnail": null,
+            "isPinned": true
+        },
+        {
+            "id": "col-theory-002",
+            "title": "INFJやINTJはご自愛をシステム化するのがいいのかも",
+            "url": "https://note.com/jagapachi3/n/n2b2d2f7f8f9a",
+            "category": "セルフケア理論",
+            "tags": [
+                "頭",
+                "ストレス",
+                "疲れ",
+                "回復",
+                "継続"
+            ],
+            "summary": "感覚に頼らない体調管理。「数値化」や「制限時間」を設けることで、思考優位なタイプが無理なく健康を維持するための仕組みを提案します。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-003",
+            "title": "肩こり解消の原理？柔道整復師に聞いたコツ",
+            "url": "https://note.com/jagapachi3/n/n492a08e70c7e",
+            "category": "身体操作",
+            "tags": [
+                "肩",
+                "姿勢",
+                "疲れ",
+                "回復",
+                "休息"
+            ],
+            "summary": "ガチガチの肩をほぐすには「あえて一度強い緊張を加える」のが正解？筋肉の性質を利用した、自分でも試せる具体的な指圧のコツを解説。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-004",
+            "title": "身体感覚の追求の道のりは長いなぁと",
+            "url": "https://note.com/jagapachi3/n/n966243b20ea0",
+            "category": "身体操作",
+            "tags": [
+                "姿勢",
+                "肩",
+                "疲れ",
+                "継続",
+                "回復"
+            ],
+            "summary": "猫背ゲーマーが武道2年で姿勢激変。自分の体の「ズレ」に気づき、パッシブアビリティとして良い状態を保つための身体操作の重要性。",
+            "thumbnail": null,
+            "isPinned": false
+        },
+        {
+            "id": "col-theory-005",
+            "title": "意味探しのグルグル思考を終わらせるための気付き",
+            "url": "https://note.com/jagapachi3/n/n0b0374333bd7",
+            "category": "メンタルケア",
+            "tags": [
+                "思考",
+                "ストレス",
+                "回復",
+                "呼吸",
+                "休息"
+            ],
+            "summary": "思考の迷宮にハマりやすい方へ。「今」を肯定し、メンタルヘルスを整えるための思考の処方箋。虚無感を乗り越えるヒントについて。",
+            "thumbnail": null,
+            "isPinned": false
+        }
+    ],
+    "expedition": [
+        {
+            "id": "col-log-101",
+            "title": "（一言日記）年末年始リゾバから無事帰還した感想",
+            "url": "https://note.com/jagapachi3/n/ne9a2b473df30",
+            "category": "遠征ログ",
+            "tags": [
+                "疲れ",
+                "回復",
+                "南伊豆",
+                "リゾバ"
+            ],
+            "summary": "南伊豆での過酷かつ充実した2週間のリゾバ記録。1日1万8千歩の労働と自然がもたらした刺激と幸福感について。",
+            "date": "2026-01-06",
+            "thumbnail": null
+        },
+        {
+            "id": "col-log-102",
+            "title": "彼氏なしアラサー女の積極的クリスマスの過ごし方",
+            "url": "https://note.com/jagapachi3/n/nccf1617db3a0",
+            "category": "遠征ログ",
+            "tags": [
+                "南伊豆",
+                "休息",
+                "リフレッシュ",
+                "クリスマス"
+            ],
+            "summary": "クリスマスに南伊豆へ！都会のノイズから離れ、現地の「今」に没入することで得られる心の平安と、環境を変える価値について。",
+            "date": "2025-12-27",
+            "thumbnail": null
+        },
+        {
+            "id": "col-log-103",
+            "title": "誰かのお手紙を読める喫茶店「天文図舘」での話",
+            "url": "https://note.com/jagapachi3/n/n734a29639c76",
+            "category": "遠征ログ",
+            "tags": [
+                "思考",
+                "ストレス",
+                "阿佐ヶ谷",
+                "メンタルケア"
+            ],
+            "summary": "阿佐ヶ谷の静寂な喫茶店への小遠征。他者の内面に触れる「手紙」を通じて自分を見つめ直す、至福のメンタルケア・タイムの記録。",
+            "date": "2025-12-24",
+            "thumbnail": null
+        }
+    ]
+}
